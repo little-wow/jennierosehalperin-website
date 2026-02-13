@@ -62,6 +62,13 @@ bundle exec jekyll serve
 
 This happens with newer Ruby versions where `csv` is no longer auto-bundled for older Jekyll versions.
 
+Why the message says `bundler: failed to load command: jekyll (/opt/homebrew/lib/ruby/gems/4.0.0/bin/jekyll)`:
+
+- `bundle exec` is launching the `jekyll` executable from your installed gem path.
+- That executable starts Jekyll 3.9, which immediately does `require "csv"`.
+- On Ruby 3.4+/4.0, `csv` is no longer a default gem, so `require "csv"` fails.
+- Bundler then reports the wrapper error (`failed to load command`) even though the root cause is the nested `cannot load such file -- csv` line.
+
 1. Pull latest repo changes (Gemfile now includes `csv` + `webrick`).
 2. Reinstall gems in this project:
 
