@@ -77,13 +77,21 @@ bundle install
 bundle exec jekyll serve
 ```
 
-If Bundler still uses stale gems:
+If Bundler still uses stale gems, run this clean-room reset from repo root:
 
 ```bash
-bundle clean --force
+hash -r
+unset GEM_HOME GEM_PATH BUNDLE_PATH BUNDLE_BIN_PATH RUBYOPT
 rm -f Gemfile.lock
+bundle clean --force || true
 bundle install
 bundle exec jekyll serve
+```
+
+Or run the repo helper script:
+
+```bash
+./scripts/fix-macos-jekyll.sh
 ```
 
 ## Deploying on GitHub Pages
