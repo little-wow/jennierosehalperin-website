@@ -57,6 +57,28 @@ bundle install
 bundle exec jekyll serve
 ```
 
+
+### `cannot load such file -- csv (LoadError)`
+
+This happens with newer Ruby versions where `csv` is no longer auto-bundled for older Jekyll versions.
+
+1. Pull latest repo changes (Gemfile now includes `csv` + `webrick`).
+2. Reinstall gems in this project:
+
+```bash
+bundle install
+bundle exec jekyll serve
+```
+
+If Bundler still uses stale gems:
+
+```bash
+bundle clean --force
+rm -f Gemfile.lock
+bundle install
+bundle exec jekyll serve
+```
+
 ## Deploying on GitHub Pages
 
 1. Push this repository to GitHub.
