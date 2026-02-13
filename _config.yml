@@ -1,0 +1,20 @@
+title: Jennie Rose Halperin
+email: hello@jennierosehalperin.me
+description: >-
+  Public policy professional, facilitator, digital strategist, and writer.
+url: "https://jennierosehalperin.me"
+baseurl: ""
+
+theme: minimal-mistakes-jekyll
+plugins:
+  - jekyll-feed
+
+header_pages:
+  - about.md
+  - what-i-do.md
+  - writing.md
+  - work-with-me.md
+
+social_links:
+  - { platform: github, user_url: "https://github.com/jennierosehalperin" }
+
