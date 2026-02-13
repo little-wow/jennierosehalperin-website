@@ -5,7 +5,7 @@ description: >-
 url: "https://jennierosehalperin.me"
 baseurl: ""
 
-theme: minima
+theme: minimal-mistakes-jekyll
 plugins:
   - jekyll-feed
 
@@ -18,5 +18,3 @@ header_pages:
 social_links:
   - { platform: github, user_url: "https://github.com/jennierosehalperin" }
 
-minima:
-  skin: auto

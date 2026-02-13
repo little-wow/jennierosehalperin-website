@@ -58,52 +58,43 @@ bundle exec jekyll serve
 ```
 
 
-### `cannot load such file -- csv (LoadError)`
+### `cannot load such file -- csv (LoadError)` / `cannot load such file -- bigdecimal (LoadError)`
 
-This happens with newer Ruby versions where `csv` is no longer auto-bundled for older Jekyll versions.
+This means your local Ruby/Jekyll stack is still loading an older gem set that does not include `csv` or `bigdecimal`.
 
-Run these exact six commands from your Git repo root (the top-level `jennierosehalperin-website` folder, not system `/` root):
-
-```bash
-unset GEM_HOME GEM_PATH BUNDLE_PATH BUNDLE_BIN_PATH RUBYOPT
-rm -f Gemfile.lock
-bundle clean --force || true
-gem install bundler
-bundle install
-bundle exec jekyll serve
-```
-
-Why the message says `bundler: failed to load command: jekyll (/opt/homebrew/lib/ruby/gems/4.0.0/bin/jekyll)`:
-
-- `bundle exec` is launching the `jekyll` executable from your installed gem path.
-- That executable starts Jekyll 3.9, which immediately does `require "csv"`.
-- On Ruby 3.4+/4.0, `csv` is no longer a default gem, so `require "csv"` fails.
-- Bundler then reports the wrapper error (`failed to load command`) even though the root cause is the nested `cannot load such file -- csv` line.
-
-1. Pull latest repo changes (Gemfile now includes `csv` + `webrick`).
-2. Reinstall gems in this project:
-
-```bash
-bundle install
-bundle exec jekyll serve
-```
-
-If Bundler still uses stale gems, run this clean-room reset from repo root:
-
-```bash
-hash -r
-unset GEM_HOME GEM_PATH BUNDLE_PATH BUNDLE_BIN_PATH RUBYOPT
-rm -f Gemfile.lock
-bundle clean --force || true
-bundle install
-bundle exec jekyll serve
-```
-
-Or run the repo helper script:
+Run this from your Git repo root:
 
 ```bash
 ./scripts/fix-macos-jekyll.sh
 ```
+
+If your script output shows steps like `[7/8]` instead of `[11/11]`, your local repo is behind. Run `git pull` first, then rerun the script.
+
+If you want manual commands instead, run these exact lines (one at a time):
+
+```bash
+unset GEM_HOME GEM_PATH BUNDLE_PATH BUNDLE_BIN_PATH RUBYOPT
+rm -f Gemfile.lock
+rm -rf .bundle vendor/bundle
+bundle config unset path
+bundle clean --force
+gem install bundler csv bigdecimal webrick
+bundle install
+bundle exec jekyll serve
+```
+
+Quick verification commands:
+
+```bash
+git pull
+grep bigdecimal Gemfile
+bundle show bigdecimal
+bundle show csv
+```
+
+If `bundle show bigdecimal` or `bundle show csv` fails, your local gems are still stale: rerun the script.
+
+Why Bundler says `failed to load command: jekyll`: Bundler is only the launcher. The real failure is the nested `cannot load such file -- bigdecimal` / `csv` line from Jekyll/Liquid.
 
 ## Deploying on GitHub Pages
 
