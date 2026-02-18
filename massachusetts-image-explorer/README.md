@@ -35,3 +35,8 @@ Then open:
 - The app always injects the word `Massachusetts` into source queries.
 - It applies an extra client-side metadata filter for `Massachusetts` to reduce unrelated hits.
 - If any source API errors or blocks CORS in-browser, a warning appears while other sources still render.
+
+
+## Source picker
+Use the checkboxes to choose which archives to search each time.
+If none are checked, the app defaults to three core sources: Wikimedia Commons, Digital Commonwealth, and Internet Archive.

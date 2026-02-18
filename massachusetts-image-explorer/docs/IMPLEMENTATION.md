@@ -43,3 +43,9 @@ Use any static file server (example):
 ```bash
 python3 -m http.server 8080
 ```
+
+
+## Source picker
+- The UI provides per-source checkboxes.
+- Search only runs against selected sources.
+- If no source is selected, it falls back to three defaults (Wikimedia, Digital Commonwealth, Internet Archive).

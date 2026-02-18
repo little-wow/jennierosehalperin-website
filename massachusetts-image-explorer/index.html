@@ -25,66 +25,30 @@
       background: var(--bg);
       color: var(--text);
     }
-    .container {
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 1rem;
-    }
-    .panel {
-      background: var(--brand-soft);
-      border: 1px solid #cfdcfe;
-      border-radius: 14px;
-      padding: 1rem;
-    }
+    .container { max-width: 1120px; margin: 0 auto; padding: 1rem; }
+    .panel { background: var(--brand-soft); border: 1px solid #cfdcfe; border-radius: 14px; padding: 1rem; }
     h1 { margin-bottom: .2rem; }
     p { line-height: 1.5; }
-    .controls {
+    .controls { display: flex; gap: .7rem; flex-wrap: wrap; margin: .8rem 0 .4rem; }
+    input, button { font: inherit; border-radius: 10px; border: 1px solid #9db3f8; padding: .72rem .9rem; }
+    input[type="text"] { flex: 1; min-width: 260px; background: #fff; }
+    button { background: var(--brand); color: #fff; border-color: var(--brand); font-weight: 700; cursor: pointer; }
+    .source-picker {
+      margin-top: .8rem;
       display: flex;
-      gap: .7rem;
+      gap: .75rem;
       flex-wrap: wrap;
-      margin: .8rem 0 .4rem;
-    }
-    input, button {
-      font: inherit;
-      border-radius: 10px;
-      border: 1px solid #9db3f8;
-      padding: .72rem .9rem;
-    }
-    input { flex: 1; min-width: 260px; background: #fff; }
-    button {
-      background: var(--brand);
-      color: #fff;
-      border-color: var(--brand);
-      font-weight: 700;
-      cursor: pointer;
-    }
-    #status { color: var(--muted); margin: .9rem 0; }
-    .warning {
-      background: var(--warn-bg);
-      border: 1px solid var(--warn-border);
-      color: #6b4a00;
-      border-radius: 10px;
       padding: .7rem;
-      margin-bottom: .9rem;
+      background: #fff;
+      border: 1px solid #d6e1ff;
+      border-radius: 10px;
     }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1rem;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 2px 10px rgba(25, 48, 100, .08);
-    }
-    .card img {
-      width: 100%;
-      height: 200px;
-      object-fit: cover;
-      background: #eef2ff;
-    }
+    .source-picker label { display: flex; align-items: center; gap: .35rem; font-size: .93rem; }
+    #status { color: var(--muted); margin: .9rem 0; }
+    .warning { background: var(--warn-bg); border: 1px solid var(--warn-border); color: #6b4a00; border-radius: 10px; padding: .7rem; margin-bottom: .9rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; box-shadow: 0 2px 10px rgba(25, 48, 100, .08); }
+    .card img { width: 100%; height: 200px; object-fit: cover; background: #eef2ff; }
     .body { padding: .8rem; }
     .source { color: var(--brand); font-weight: 700; font-size: .85rem; }
     .title { margin: .3rem 0; font-size: 1rem; }
@@ -99,9 +63,19 @@
 
     <section class="panel">
       <label for="query">Refine your topic inside Massachusetts</label>
-      <form id="search-form" class="controls" aria-label="Search archives">
-        <input id="query" name="query" type="text" value="history" placeholder="e.g., Cape Cod, abolition, Worcester" />
-        <button type="submit">Find images</button>
+      <form id="search-form" aria-label="Search archives">
+        <div class="controls">
+          <input id="query" name="query" type="text" value="history" placeholder="e.g., Cape Cod, abolition, Worcester" />
+          <button type="submit">Find images</button>
+        </div>
+
+        <fieldset class="source-picker">
+          <legend><strong>Choose sources</strong></legend>
+          <label><input type="checkbox" name="sources" value="wikimedia" checked /> Wikimedia Commons</label>
+          <label><input type="checkbox" name="sources" value="digital" checked /> Digital Commonwealth</label>
+          <label><input type="checkbox" name="sources" value="archive" checked /> Internet Archive</label>
+          <label><input type="checkbox" name="sources" value="openverse" checked /> Creative Commons Search (Openverse)</label>
+        </fieldset>
       </form>
       <p class="meta">Every search includes the keyword “Massachusetts” and image-only filters where the source API supports them.</p>
     </section>
@@ -117,6 +91,13 @@ const warnEl = document.getElementById('warnings');
 const resultsEl = document.getElementById('results');
 const form = document.getElementById('search-form');
 const SOURCE_LIMIT = 10;
+
+const SOURCE_MAP = {
+  wikimedia: ['Wikimedia Commons', fromWikimedia],
+  digital: ['Massachusetts Digital Commonwealth', fromDigitalCommonwealth],
+  archive: ['Internet Archive', fromInternetArchive],
+  openverse: ['Creative Commons Search (Openverse)', fromOpenverse],
+};
 
 const includesMassachusetts = (s='') => /\bmassachusetts\b/i.test(String(s));
 
@@ -226,7 +207,7 @@ function render(items, warnings) {
   });
 
   if (!items.length) {
-    resultsEl.innerHTML = '<p>No matching Massachusetts images were returned. Try another topic.</p>';
+    resultsEl.innerHTML = '<p>No matching Massachusetts images were returned. Try another topic or choose different sources.</p>';
     return;
   }
 
@@ -246,15 +227,17 @@ function render(items, warnings) {
   }
 }
 
+function selectedSources() {
+  const values = Array.from(form.querySelectorAll('input[name="sources"]:checked')).map(el => el.value);
+  return values.length ? values : ['wikimedia', 'digital', 'archive'];
+}
+
 async function search(term='history') {
   const query = (term || '').trim() || 'history';
-  statusEl.textContent = `Searching for Massachusetts + "${query}"...`;
-  const sources = [
-    ['Wikimedia Commons', fromWikimedia],
-    ['Massachusetts Digital Commonwealth', fromDigitalCommonwealth],
-    ['Internet Archive', fromInternetArchive],
-    ['Creative Commons Search (Openverse)', fromOpenverse]
-  ];
+  const activeSourceKeys = selectedSources();
+  const sources = activeSourceKeys.map((key) => SOURCE_MAP[key]).filter(Boolean);
+
+  statusEl.textContent = `Searching for Massachusetts + "${query}" in ${sources.length} selected source${sources.length === 1 ? '' : 's'}...`;
 
   const warnings = [];
   const batches = await Promise.all(sources.map(async ([name, fn]) => {
