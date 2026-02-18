@@ -49,3 +49,15 @@ python3 -m http.server 8080
 - The UI provides per-source checkboxes.
 - Search only runs against selected sources.
 - If no source is selected, it falls back to three defaults (Wikimedia, Digital Commonwealth, Internet Archive).
+
+
+## Server-side proxy
+- File: `api/search.js`
+- Accepts query params: `source`, `query`, `limit`
+- Builds upstream URL server-side and returns JSON response
+- Adds permissive CORS headers and handles `OPTIONS` preflight
+- Used to avoid browser-side blocking/CORS limitations for Openverse and Digital Commonwealth
+
+## Frontend proxy strategy
+- Frontend first tries `${window.location.origin}/api/search` (or `window.MA_PROXY_BASE` override).
+- If proxy is unavailable or fails, it falls back to direct client-side `fetch` to each source endpoint.

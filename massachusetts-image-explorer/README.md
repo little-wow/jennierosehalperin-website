@@ -40,3 +40,17 @@ Then open:
 ## Source picker
 Use the checkboxes to choose which archives to search each time.
 If none are checked, the app defaults to three core sources: Wikimedia Commons, Digital Commonwealth, and Internet Archive.
+
+
+## Proxy support (fixes blocked/CORS source requests)
+This repo now includes `api/search.js` for server-side proxying of source API calls.
+
+When deployed on a platform that supports this route (for example Vercel), the frontend automatically tries:
+- `/api/search?source=<source>&query=<term>&limit=<n>`
+
+If the proxy is unavailable, the app falls back to direct browser requests.
+
+### Deploy on Vercel
+1. Publish this folder as its own repo.
+2. Import into Vercel as a project.
+3. Open the deployed app URL and the frontend will use the same-origin `/api/search` endpoint automatically.
