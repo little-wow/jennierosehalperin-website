@@ -1,0 +1,45 @@
+# Implementation Notes
+
+## Goal
+Provide one page that can browse Massachusetts-related images from multiple open collections using only client-side JavaScript.
+
+## Data sources
+1. **Wikimedia Commons API**
+   - Endpoint: `https://commons.wikimedia.org/w/api.php`
+   - Query includes `filetype:bitmap Massachusetts <user term>`
+2. **Digital Commonwealth**
+   - Endpoint: `https://www.digitalcommonwealth.org/search.json`
+   - Query includes `Massachusetts <user term>` and image-only filter
+3. **Internet Archive**
+   - Endpoint: `https://archive.org/advancedsearch.php`
+   - Query includes media type image + Massachusetts in title or subject
+4. **Openverse (CC Search)**
+   - Endpoint: `https://api.openverse.engineering/v1/images/`
+   - Query includes `Massachusetts <user term>`
+
+## Result normalization
+All source responses are normalized to:
+- source
+- title
+- image URL
+- page URL
+- creator
+- license
+- metadata blob for keyword filtering
+
+## Massachusetts-only enforcement
+Two layers:
+1. request-level inclusion of `Massachusetts`
+2. response-level regex filter requiring `massachusetts` in metadata blob
+
+## Failure behavior
+- Each source is fetched independently.
+- If one source fails, the page still renders other source results.
+- Warning message indicates which source failed.
+
+## Local development
+Use any static file server (example):
+
+```bash
+python3 -m http.server 8080
+```

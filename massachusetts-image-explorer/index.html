@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Massachusetts Image Explorer</title>
+  <meta name="description" content="Search Massachusetts-focused images from Wikimedia Commons, Digital Commonwealth, Internet Archive, and Openverse." />
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f9ff;
+      --card: #ffffff;
+      --text: #1d2840;
+      --brand: #2648b8;
+      --brand-soft: #eaf0ff;
+      --muted: #55627f;
+      --border: #dbe3f5;
+      --warn-bg: #fff5dd;
+      --warn-border: #f3c56f;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 1rem;
+    }
+    .panel {
+      background: var(--brand-soft);
+      border: 1px solid #cfdcfe;
+      border-radius: 14px;
+      padding: 1rem;
+    }
+    h1 { margin-bottom: .2rem; }
+    p { line-height: 1.5; }
+    .controls {
+      display: flex;
+      gap: .7rem;
+      flex-wrap: wrap;
+      margin: .8rem 0 .4rem;
+    }
+    input, button {
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid #9db3f8;
+      padding: .72rem .9rem;
+    }
+    input { flex: 1; min-width: 260px; background: #fff; }
+    button {
+      background: var(--brand);
+      color: #fff;
+      border-color: var(--brand);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    #status { color: var(--muted); margin: .9rem 0; }
+    .warning {
+      background: var(--warn-bg);
+      border: 1px solid var(--warn-border);
+      color: #6b4a00;
+      border-radius: 10px;
+      padding: .7rem;
+      margin-bottom: .9rem;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 2px 10px rgba(25, 48, 100, .08);
+    }
+    .card img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      background: #eef2ff;
+    }
+    .body { padding: .8rem; }
+    .source { color: var(--brand); font-weight: 700; font-size: .85rem; }
+    .title { margin: .3rem 0; font-size: 1rem; }
+    .meta { margin: .2rem 0; color: var(--muted); font-size: .85rem; }
+    a { color: var(--brand); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1>Massachusetts Image Explorer</h1>
+    <p>Search for Massachusetts-related images from Wikimedia Commons, Massachusetts Digital Commonwealth, Internet Archive, and Creative Commons Search (Openverse).</p>
+
+    <section class="panel">
+      <label for="query">Refine your topic inside Massachusetts</label>
+      <form id="search-form" class="controls" aria-label="Search archives">
+        <input id="query" name="query" type="text" value="history" placeholder="e.g., Cape Cod, abolition, Worcester" />
+        <button type="submit">Find images</button>
+      </form>
+      <p class="meta">Every search includes the keyword “Massachusetts” and image-only filters where the source API supports them.</p>
+    </section>
+
+    <p id="status" aria-live="polite"></p>
+    <section id="warnings"></section>
+    <section id="results" class="grid" aria-live="polite"></section>
+  </main>
+
+<script>
+const statusEl = document.getElementById('status');
+const warnEl = document.getElementById('warnings');
+const resultsEl = document.getElementById('results');
+const form = document.getElementById('search-form');
+const SOURCE_LIMIT = 10;
+
+const includesMassachusetts = (s='') => /\bmassachusetts\b/i.test(String(s));
+
+function normalize(item) {
+  const safe = v => v == null ? '' : String(v);
+  const title = safe(item.title).trim() || 'Untitled image';
+  return {
+    source: safe(item.source), title,
+    image: safe(item.image), page: safe(item.page),
+    creator: safe(item.creator), license: safe(item.license),
+    blob: `${title} ${safe(item.description)} ${safe(item.subjects)}`
+  };
+}
+
+async function fromWikimedia(q) {
+  const u = new URL('https://commons.wikimedia.org/w/api.php');
+  u.search = new URLSearchParams({
+    action: 'query', format: 'json', origin: '*', generator: 'search',
+    gsrsearch: `filetype:bitmap Massachusetts ${q}`,
+    gsrnamespace: '6', gsrlimit: String(SOURCE_LIMIT),
+    prop: 'imageinfo', iiprop: 'url|user|extmetadata'
+  });
+  const data = await (await fetch(u)).json();
+  const pages = Object.values(data.query?.pages || {});
+  return pages.map(p => {
+    const info = p.imageinfo?.[0] || {};
+    return normalize({
+      source: 'Wikimedia Commons',
+      title: p.title?.replace(/^File:/, ''),
+      image: info.thumburl || info.url,
+      page: info.descriptionurl,
+      creator: info.user,
+      license: info.extmetadata?.LicenseShortName?.value,
+      description: info.extmetadata?.ImageDescription?.value,
+    });
+  }).filter(i => i.image && includesMassachusetts(i.blob));
+}
+
+async function fromDigitalCommonwealth(q) {
+  const u = new URL('https://www.digitalcommonwealth.org/search.json');
+  u.search = new URLSearchParams({
+    q: `Massachusetts ${q}`,
+    per_page: String(SOURCE_LIMIT),
+    search_field: 'all_fields',
+    'f[human_readable_type_ssim][]': 'Still Image'
+  });
+  const data = await (await fetch(u)).json();
+  const docs = data.response?.docs || [];
+  return docs.map(d => {
+    const id = d.id;
+    return normalize({
+      source: 'Massachusetts Digital Commonwealth',
+      title: d.title_info_primary_tsi,
+      image: `https://iiif.digitalcommonwealth.org/iiif/2/${id}%2Ffull%2F!600,600%2F0/default.jpg`,
+      page: `https://www.digitalcommonwealth.org/search/${id}`,
+      creator: (d.name_tsim || [])[0],
+      license: (d.rights_tsim || [])[0],
+      description: (d.abstract_tsim || []).join(' '),
+      subjects: (d.subject_topic_tsim || []).join(' ')
+    });
+  }).filter(i => i.image && includesMassachusetts(i.blob));
+}
+
+async function fromInternetArchive(q) {
+  const u = new URL('https://archive.org/advancedsearch.php');
+  u.search = new URLSearchParams({
+    q: `(mediatype:image) AND (title:(Massachusetts ${q}) OR subject:(Massachusetts ${q}))`,
+    fl: 'identifier,title,creator,subject', rows: String(SOURCE_LIMIT), page: '1', output: 'json'
+  });
+  const data = await (await fetch(u)).json();
+  const docs = data.response?.docs || [];
+  return docs.map(d => normalize({
+    source: 'Internet Archive',
+    title: d.title,
+    image: `https://archive.org/services/img/${d.identifier}`,
+    page: `https://archive.org/details/${d.identifier}`,
+    creator: d.creator,
+    license: 'Varies by item',
+    subjects: Array.isArray(d.subject) ? d.subject.join(' ') : d.subject
+  })).filter(i => i.image && includesMassachusetts(i.blob));
+}
+
+async function fromOpenverse(q) {
+  const u = new URL('https://api.openverse.engineering/v1/images/');
+  u.search = new URLSearchParams({ q: `Massachusetts ${q}`, page_size: String(SOURCE_LIMIT), license_type: 'all' });
+  const data = await (await fetch(u)).json();
+  return (data.results || []).map(r => normalize({
+    source: 'Creative Commons Search (Openverse)',
+    title: r.title,
+    image: r.thumbnail || r.url,
+    page: r.foreign_landing_url || r.url,
+    creator: r.creator,
+    license: r.license,
+    description: (r.tags || []).map(t => t.name).join(' ')
+  })).filter(i => i.image && includesMassachusetts(i.blob));
+}
+
+function render(items, warnings) {
+  warnEl.innerHTML = '';
+  resultsEl.innerHTML = '';
+
+  warnings.forEach(w => {
+    const p = document.createElement('p');
+    p.className = 'warning';
+    p.textContent = w;
+    warnEl.appendChild(p);
+  });
+
+  if (!items.length) {
+    resultsEl.innerHTML = '<p>No matching Massachusetts images were returned. Try another topic.</p>';
+    return;
+  }
+
+  for (const i of items) {
+    const card = document.createElement('article');
+    card.className = 'card';
+    card.innerHTML = `
+      <img src="${i.image}" alt="Preview for ${i.title}" loading="lazy" />
+      <div class="body">
+        <div class="source">${i.source}</div>
+        <h2 class="title">${i.title}</h2>
+        <p class="meta">Creator: ${i.creator || 'Unknown'}</p>
+        <p class="meta">License: ${i.license || 'Not specified'}</p>
+        <a href="${i.page}" target="_blank" rel="noopener noreferrer">Open original ↗</a>
+      </div>`;
+    resultsEl.appendChild(card);
+  }
+}
+
+async function search(term='history') {
+  const query = (term || '').trim() || 'history';
+  statusEl.textContent = `Searching for Massachusetts + "${query}"...`;
+  const sources = [
+    ['Wikimedia Commons', fromWikimedia],
+    ['Massachusetts Digital Commonwealth', fromDigitalCommonwealth],
+    ['Internet Archive', fromInternetArchive],
+    ['Creative Commons Search (Openverse)', fromOpenverse]
+  ];
+
+  const warnings = [];
+  const batches = await Promise.all(sources.map(async ([name, fn]) => {
+    try { return await fn(query); }
+    catch (e) {
+      warnings.push(`${name} could not be loaded in this browser session (${e.message}).`);
+      return [];
+    }
+  }));
+
+  const items = batches.flat();
+  statusEl.textContent = `Showing ${items.length} Massachusetts image result${items.length === 1 ? '' : 's'}.`;
+  render(items, warnings);
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const val = new FormData(form).get('query');
+  search(val);
+});
+
+search();
+</script>
+</body>
+</html>
