@@ -1,44 +1,69 @@
 # Implementation Notes
 
 ## Goal
-Provide one modern web app that aggregates Massachusetts-related images from multiple open archives.
+Provide one page that can browse Massachusetts-related images from multiple open collections using only client-side JavaScript.
 
-## Sources currently supported
-1. Wikimedia Commons API
-2. Massachusetts Digital Commonwealth (`search.json`)
-3. Internet Archive (`advancedsearch.php`)
-4. Openverse API
-5. Library of Congress Photos (`loc.gov/photos?fo=json`)
-6. Art Institute of Chicago API
+## Data sources
+1. **Wikimedia Commons API**
+   - Endpoint: `https://commons.wikimedia.org/w/api.php`
+   - Query includes `filetype:bitmap Massachusetts <user term>`
+2. **Digital Commonwealth**
+   - Endpoint: `https://www.digitalcommonwealth.org/search.json`
+   - Query includes `Massachusetts <user term>` and image-only filter
+3. **Internet Archive**
+   - Endpoint: `https://archive.org/advancedsearch.php`
+   - Query includes media type image + Massachusetts in title or subject
+4. **Openverse (CC Search)**
+   - Endpoint: `https://api.openverse.engineering/v1/images/`
+   - Query includes `Massachusetts <user term>`
 
-## Request strategy
-- Frontend is proxy-first (`/api/search`) and falls back to direct browser fetch.
-- Proxy exists in:
-  - `server.mjs` (local full-stack mode)
-  - `api/search.js` (serverless deployment mode)
+## Result normalization
+All source responses are normalized to:
+- source
+- title
+- image URL
+- page URL
+- creator
+- license
+- metadata blob for keyword filtering
 
-## Massachusetts filtering
+## Massachusetts-only enforcement
 Two layers:
-1. each source query includes `Massachusetts`
-2. normalized metadata blob is regex-filtered for `massachusetts`
+1. request-level inclusion of `Massachusetts`
+2. response-level regex filter requiring `massachusetts` in metadata blob
 
-## Load more behavior
-- Base per-source limit is 12.
-- Clicking **Load more results** increases per-source limit by 12 and reruns the same query.
-- This is a limit-expansion model rather than true cursor pagination.
+## Failure behavior
+- Each source is fetched independently.
+- If one source fails, the page still renders other source results.
+- Warning message indicates which source failed.
 
-## Diagnostics payload
-On proxy failures, JSON includes:
-- `requestId`
-- `source`
-- `target`
-- `category` (`dns`, `connectivity`, `tls`, `timeout`, `unknown`)
-- `code`
-- `detail`
-- `hint`
+## Local development
+Use any static file server (example):
 
-## UI direction
-- Bootstrap 5 base
-- Dark gradient + glass cards
-- source chips and responsive cards
-- loading spinner, status pill, warnings
+```bash
+python3 -m http.server 8080
+```
+
+
+## Source picker
+- The UI provides per-source checkboxes.
+- Search only runs against selected sources.
+- If no source is selected, it falls back to three defaults (Wikimedia, Digital Commonwealth, Internet Archive).
+
+
+## Server-side proxy
+- File: `api/search.js`
+- Accepts query params: `source`, `query`, `limit`
+- Builds upstream URL server-side and returns JSON response
+- Adds permissive CORS headers and handles `OPTIONS` preflight
+- Used to avoid browser-side blocking/CORS limitations for Openverse and Digital Commonwealth
+
+## Frontend proxy strategy
+- Frontend first tries `${window.location.origin}/api/search` (or `window.MA_PROXY_BASE` override).
+- If proxy is unavailable or fails, it falls back to direct client-side `fetch` to each source endpoint.
+
+
+## Local full-stack mode
+- File: `server.mjs`
+- Serves `index.html` and exposes `/api/search` in one local process
+- Lets you test proxy-backed behavior locally without Vercel
