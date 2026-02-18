@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Massachusetts Image Explorer</title>
+  <meta name="description" content="Search Massachusetts-focused images from multiple open archives." />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+  <style>
+    :root { --brand:#4f46e5; --brand2:#06b6d4; }
+    body {
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 0%, #1f2555 0%, #0f122c 35%, #080a1a 100%);
+      color: #eef2ff;
+    }
+    .glass {
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.16);
+      box-shadow: 0 20px 50px rgba(0,0,0,.35);
+      backdrop-filter: blur(12px);
+      border-radius: 1rem;
+    }
+    .hero-title {
+      background: linear-gradient(90deg, #a5b4fc 0%, #67e8f9 45%, #c4b5fd 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+    .source-chip {
+      background: rgba(99,102,241,.25);
+      border: 1px solid rgba(165,180,252,.35);
+      border-radius: .7rem;
+      padding: .45rem .6rem;
+    }
+    .result-card {
+      background: rgba(17,24,39,.75);
+      border: 1px solid rgba(148,163,184,.3);
+      color: #e5e7eb;
+      box-shadow: 0 8px 28px rgba(0,0,0,.35);
+      transition: transform .2s ease, border-color .2s ease;
+      height: 100%;
+      border-radius: 1rem;
+    }
+    .result-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(103,232,249,.65);
+    }
+    .result-image {
+      width: 100%;
+      height: 230px;
+      object-fit: cover;
+      background: #111827;
+      border-top-left-radius: 1rem;
+      border-top-right-radius: 1rem;
+    }
+    .muted { color: #cbd5e1 !important; }
+    .status-pill {
+      background: rgba(15,23,42,.75);
+      border: 1px solid rgba(148,163,184,.35);
+      border-radius: 999px;
+      padding: .5rem .9rem;
+      font-size: .92rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="container py-4 py-md-5">
+    <section class="glass p-4 p-md-5 mb-4">
+      <div class="d-flex flex-column flex-lg-row justify-content-between gap-3 align-items-lg-center">
+        <div>
+          <p class="text-uppercase small fw-semibold text-info mb-1">Massachusetts visual archives</p>
+          <h1 class="display-6 fw-bold hero-title mb-2">Massachusetts Image Explorer</h1>
+          <p class="muted mb-0">Search across 6+ open collections with Massachusetts-focused filtering.</p>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <span class="badge rounded-pill text-bg-primary">Modern UI</span>
+          <span class="badge rounded-pill text-bg-info">Proxy-ready</span>
+          <span class="badge rounded-pill text-bg-dark border">Load more</span>
+        </div>
+      </div>
+
+      <form id="search-form" class="row g-3 mt-2" aria-label="Search archives">
+        <div class="col-12 col-lg-9">
+          <label for="query" class="form-label fw-semibold">Refine topic inside Massachusetts</label>
+          <input id="query" name="query" type="text" class="form-control form-control-lg" value="history" placeholder="e.g., Cape Cod, labor history, Worcester, marshes" />
+        </div>
+        <div class="col-12 col-lg-3 d-flex align-items-end">
+          <button type="submit" class="btn btn-info btn-lg w-100 fw-semibold">Search archives</button>
+        </div>
+
+        <div class="col-12">
+          <fieldset class="source-chip">
+            <legend class="fs-6 fw-semibold mb-2">Choose image sources</legend>
+            <div class="row g-2">
+              <label class="col-12 col-md-6 col-xl-4 form-check px-4"><input class="form-check-input me-2" type="checkbox" name="sources" value="wikimedia" checked> Wikimedia Commons</label>
+              <label class="col-12 col-md-6 col-xl-4 form-check px-4"><input class="form-check-input me-2" type="checkbox" name="sources" value="digital" checked> Massachusetts Digital Commonwealth</label>
+              <label class="col-12 col-md-6 col-xl-4 form-check px-4"><input class="form-check-input me-2" type="checkbox" name="sources" value="archive" checked> Internet Archive</label>
+              <label class="col-12 col-md-6 col-xl-4 form-check px-4"><input class="form-check-input me-2" type="checkbox" name="sources" value="openverse" checked> Creative Commons Search (Openverse)</label>
+              <label class="col-12 col-md-6 col-xl-4 form-check px-4"><input class="form-check-input me-2" type="checkbox" name="sources" value="loc" checked> Library of Congress Photos</label>
+              <label class="col-12 col-md-6 col-xl-4 form-check px-4"><input class="form-check-input me-2" type="checkbox" name="sources" value="aic" checked> Art Institute of Chicago</label>
+            </div>
+          </fieldset>
+        </div>
+      </form>
+    </section>
+
+    <div class="d-flex justify-content-between align-items-center gap-2 mb-3 flex-wrap">
+      <div class="d-flex align-items-center gap-2">
+        <div class="spinner-border spinner-border-sm text-info d-none" role="status" id="loading-spinner"><span class="visually-hidden">Loading...</span></div>
+        <p id="status" class="status-pill mb-0" aria-live="polite">Ready.</p>
+      </div>
+      <button id="load-more" class="btn btn-outline-info d-none">Load more results</button>
+    </div>
+
+    <section id="warnings" class="mb-3"></section>
+    <section id="results" class="row g-3" aria-live="polite"></section>
+  </main>
+
+<script>
+const statusEl = document.getElementById('status');
+const warnEl = document.getElementById('warnings');
+const resultsEl = document.getElementById('results');
+const form = document.getElementById('search-form');
+const spinner = document.getElementById('loading-spinner');
+const loadMoreBtn = document.getElementById('load-more');
+const BASE_LIMIT = 12;
+
+const IS_HTTP_CONTEXT = /^https?:$/.test(window.location.protocol);
+const PROXY_BASE = window.MA_PROXY_BASE || (IS_HTTP_CONTEXT ? `${window.location.origin}/api/search` : '');
+let currentSearchTerm = 'history';
+let currentLimit = BASE_LIMIT;
+
+async function fetchSourceJson(source, directUrl) {
+  let proxyDiagnostic = null;
+
+  if (PROXY_BASE) {
+    const proxyUrl = `${PROXY_BASE}?source=${encodeURIComponent(source)}&query=${encodeURIComponent(currentSearchTerm)}&limit=${currentLimit}`;
+    try {
+      const proxyRes = await fetch(proxyUrl);
+      if (proxyRes.ok) return await proxyRes.json();
+      try { proxyDiagnostic = await proxyRes.json(); } catch (_) {}
+    } catch (error) {
+      proxyDiagnostic = { detail: error?.message || 'proxy request failed' };
+    }
+  }
+
+  try {
+    return await (await fetch(directUrl)).json();
+  } catch (directError) {
+    const hint = proxyDiagnostic
+      ? ` | proxy diagnostic: ${proxyDiagnostic.category || 'unknown'} (${proxyDiagnostic.code || 'n/a'}) ${proxyDiagnostic.detail || proxyDiagnostic.hint || ''}`
+      : '';
+    throw new Error(`${directError.message}${hint}`.trim());
+  }
+}
+
+const SOURCE_MAP = {
+  wikimedia: ['Wikimedia Commons', fromWikimedia],
+  digital: ['Massachusetts Digital Commonwealth', fromDigitalCommonwealth],
+  archive: ['Internet Archive', fromInternetArchive],
+  openverse: ['Creative Commons Search (Openverse)', fromOpenverse],
+  loc: ['Library of Congress Photos', fromLibraryOfCongress],
+  aic: ['Art Institute of Chicago', fromArtInstituteChicago],
+};
+
+const includesMassachusetts = (s='') => /\bmassachusetts\b/i.test(String(s));
+
+function normalize(item) {
+  const safe = v => v == null ? '' : String(v);
+  const title = safe(item.title).trim() || 'Untitled image';
+  return {
+    source: safe(item.source), title,
+    image: safe(item.image), page: safe(item.page),
+    creator: safe(item.creator), license: safe(item.license),
+    blob: `${title} ${safe(item.description)} ${safe(item.subjects)}`,
+  };
+}
+
+async function fromWikimedia(q) {
+  const u = new URL('https://commons.wikimedia.org/w/api.php');
+  u.search = new URLSearchParams({ action: 'query', format: 'json', origin: '*', generator: 'search', gsrsearch: `filetype:bitmap Massachusetts ${q}`, gsrnamespace: '6', gsrlimit: String(currentLimit), prop: 'imageinfo', iiprop: 'url|user|extmetadata' });
+  const data = await fetchSourceJson('wikimedia', u);
+  const pages = Object.values(data.query?.pages || {});
+  return pages.map((p) => {
+    const info = p.imageinfo?.[0] || {};
+    return normalize({
+      source: 'Wikimedia Commons',
+      title: p.title?.replace(/^File:/, ''),
+      image: info.thumburl || info.url,
+      page: info.descriptionurl,
+      creator: info.user,
+      license: info.extmetadata?.LicenseShortName?.value,
+      description: info.extmetadata?.ImageDescription?.value,
+    });
+  }).filter(i => i.image && includesMassachusetts(i.blob));
+}
+
+async function fromDigitalCommonwealth(q) {
+  const u = new URL('https://www.digitalcommonwealth.org/search.json');
+  u.search = new URLSearchParams({ q: `Massachusetts ${q}`, per_page: String(currentLimit), search_field: 'all_fields', 'f[human_readable_type_ssim][]': 'Still Image' });
+  const data = await fetchSourceJson('digital', u);
+  const docs = data.response?.docs || [];
+  return docs.map((d) => {
+    const id = d.id;
+    return normalize({
+      source: 'Massachusetts Digital Commonwealth',
+      title: d.title_info_primary_tsi,
+      image: `https://iiif.digitalcommonwealth.org/iiif/2/${id}%2Ffull%2F!700,700%2F0/default.jpg`,
+      page: `https://www.digitalcommonwealth.org/search/${id}`,
+      creator: (d.name_tsim || [])[0],
+      license: (d.rights_tsim || [])[0],
+      description: (d.abstract_tsim || []).join(' '),
+      subjects: (d.subject_topic_tsim || []).join(' '),
+    });
+  }).filter(i => i.image && includesMassachusetts(i.blob));
+}
+
+async function fromInternetArchive(q) {
+  const u = new URL('https://archive.org/advancedsearch.php');
+  u.search = new URLSearchParams({ q: `(mediatype:image) AND (title:(Massachusetts ${q}) OR subject:(Massachusetts ${q}))`, fl: 'identifier,title,creator,subject', rows: String(currentLimit), page: '1', output: 'json' });
+  const data = await fetchSourceJson('archive', u);
+  const docs = data.response?.docs || [];
+  return docs.map((d) => normalize({
+    source: 'Internet Archive',
+    title: d.title,
+    image: `https://archive.org/services/img/${d.identifier}`,
+    page: `https://archive.org/details/${d.identifier}`,
+    creator: d.creator,
+    license: 'Varies by item',
+    subjects: Array.isArray(d.subject) ? d.subject.join(' ') : d.subject,
+  })).filter(i => i.image && includesMassachusetts(i.blob));
+}
+
+async function fromOpenverse(q) {
+  const u = new URL('https://api.openverse.engineering/v1/images/');
+  u.search = new URLSearchParams({ q: `Massachusetts ${q}`, page_size: String(currentLimit), license_type: 'all' });
+  const data = await fetchSourceJson('openverse', u);
+  return (data.results || []).map((r) => normalize({
+    source: 'Creative Commons Search (Openverse)',
+    title: r.title,
+    image: r.thumbnail || r.url,
+    page: r.foreign_landing_url || r.url,
+    creator: r.creator,
+    license: r.license,
+    description: (r.tags || []).map(t => t.name).join(' '),
+  })).filter(i => i.image && includesMassachusetts(i.blob));
+}
+
+async function fromLibraryOfCongress(q) {
+  const u = new URL('https://www.loc.gov/photos/');
+  u.search = new URLSearchParams({ q: `Massachusetts ${q}`, fo: 'json', c: String(currentLimit) });
+  const data = await fetchSourceJson('loc', u);
+  const results = data.results || [];
+  return results.map((item) => normalize({
+    source: 'Library of Congress Photos',
+    title: item.title,
+    image: Array.isArray(item.image_url) ? item.image_url[0] : item.image_url,
+    page: item.url,
+    creator: item?.contributor_names?.[0] || item?.item?.creator,
+    license: item.rights || 'See source record',
+    description: item.description,
+    subjects: Array.isArray(item.subjects) ? item.subjects.join(' ') : item.subjects,
+  })).filter(i => i.image && includesMassachusetts(i.blob));
+}
+
+async function fromArtInstituteChicago(q) {
+  const u = new URL('https://api.artic.edu/api/v1/artworks/search');
+  u.search = new URLSearchParams({ q: `Massachusetts ${q}`, limit: String(currentLimit), fields: 'id,title,image_id,artist_title' });
+  const data = await fetchSourceJson('aic', u);
+  return (data.data || []).map((item) => normalize({
+    source: 'Art Institute of Chicago',
+    title: item.title,
+    image: item.image_id ? `https://www.artic.edu/iiif/2/${item.image_id}/full/843,/0/default.jpg` : '',
+    page: item.id ? `https://www.artic.edu/artworks/${item.id}` : '',
+    creator: item.artist_title,
+    license: 'See source record',
+    description: item.artist_title,
+  })).filter(i => i.image && includesMassachusetts(i.blob));
+}
+
+function render(items, warnings) {
+  warnEl.innerHTML = '';
+  resultsEl.innerHTML = '';
+
+  warnings.forEach((w) => {
+    const alert = document.createElement('div');
+    alert.className = 'alert alert-warning';
+    alert.textContent = w;
+    warnEl.appendChild(alert);
+  });
+
+  if (!items.length) {
+    resultsEl.innerHTML = '<div class="col-12"><div class="alert alert-dark border">No Massachusetts image matches right now. Try another topic or more sources.</div></div>';
+    loadMoreBtn.classList.add('d-none');
+    return;
+  }
+
+  for (const i of items) {
+    const col = document.createElement('div');
+    col.className = 'col-12 col-md-6 col-xl-4';
+    col.innerHTML = `
+      <article class="result-card">
+        <img src="${i.image}" alt="Preview for ${i.title}" class="result-image" loading="lazy" />
+        <div class="p-3">
+          <span class="badge text-bg-info mb-2">${i.source}</span>
+          <h2 class="h6">${i.title}</h2>
+          <p class="small muted mb-1"><strong>Creator:</strong> ${i.creator || 'Unknown'}</p>
+          <p class="small muted mb-3"><strong>License:</strong> ${i.license || 'Not specified'}</p>
+          <a class="btn btn-sm btn-outline-light" href="${i.page}" target="_blank" rel="noopener noreferrer">Open original ↗</a>
+        </div>
+      </article>`;
+    resultsEl.appendChild(col);
+  }
+
+  loadMoreBtn.classList.remove('d-none');
+}
+
+function selectedSources() {
+  const values = Array.from(form.querySelectorAll('input[name="sources"]:checked')).map((el) => el.value);
+  return values.length ? values : ['wikimedia', 'digital', 'archive', 'openverse', 'loc', 'aic'];
+}
+
+async function search(term='history') {
+  const query = (term || '').trim() || 'history';
+  currentSearchTerm = query;
+  const activeSourceKeys = selectedSources();
+  const sources = activeSourceKeys.map((key) => SOURCE_MAP[key]).filter(Boolean);
+
+  spinner.classList.remove('d-none');
+  statusEl.textContent = `Searching ${sources.length} sources with limit ${currentLimit} each...`;
+
+  const warnings = [];
+  const batches = await Promise.all(sources.map(async ([name, fn]) => {
+    try { return await fn(query); }
+    catch (e) {
+      warnings.push(`${name} could not be loaded in this browser session (${e.message}).`);
+      return [];
+    }
+  }));
+
+  const items = batches.flat();
+  statusEl.textContent = `Showing ${items.length} total Massachusetts image results.`;
+  spinner.classList.add('d-none');
+  render(items, warnings);
+}
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  currentLimit = BASE_LIMIT;
+  const val = new FormData(form).get('query');
+  search(val);
+});
+
+loadMoreBtn.addEventListener('click', () => {
+  currentLimit += BASE_LIMIT;
+  search(currentSearchTerm);
+});
+
+search();
+</script>
+</body>
+</html>
