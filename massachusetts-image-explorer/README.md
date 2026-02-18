@@ -56,3 +56,15 @@ If the proxy is unavailable, the app falls back to direct browser requests.
 1. Publish this folder as its own repo.
 2. Import into Vercel as a project.
 3. Open the deployed app URL and the frontend will use the same-origin `/api/search` endpoint automatically.
+
+
+## UI
+- The app now uses a modern Bootstrap 5 layout (card-based hero, responsive source picker, and responsive result cards).
+
+
+## Preview quickly
+```bash
+cd massachusetts-image-explorer
+node server.mjs
+# then open http://127.0.0.1:8787/
+```
