@@ -68,16 +68,3 @@ cd massachusetts-image-explorer
 node server.mjs
 # then open http://127.0.0.1:8787/
 ```
-
-
-## Proxy diagnostics
-When a source fails through `/api/search`, error JSON now includes diagnostics fields like:
-- `requestId`
-- `category` (`dns`, `connectivity`, `tls`, `timeout`, `unknown`)
-- `code` (when available)
-- `detail` and `hint`
-
-Quick check:
-```bash
-curl "http://127.0.0.1:8787/api/search?source=digital&query=history&limit=1"
-```

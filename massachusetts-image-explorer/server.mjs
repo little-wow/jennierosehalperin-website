@@ -1,12 +1,11 @@
 import http from 'node:http';
+import { readFile } from 'node:fs/promises';
 import { createReadStream, existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 8787;
-const UPSTREAM_TIMEOUT_MS = Number(process.env.UPSTREAM_TIMEOUT_MS || 15000);
 
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -39,69 +38,6 @@ function upstreamUrl(source, query, max) {
   return null;
 }
 
-function classifyError(error) {
-  const code = error?.cause?.code || error?.code || null;
-  if (error?.name === 'AbortError') {
-    return { category: 'timeout', code: 'ETIMEDOUT', hint: 'Upstream request timed out. Try again or increase UPSTREAM_TIMEOUT_MS.' };
-  }
-  if (['ENOTFOUND', 'EAI_AGAIN'].includes(code)) {
-    return { category: 'dns', code, hint: 'DNS/network resolution failed for upstream host.' };
-  }
-  if (['ECONNREFUSED', 'ECONNRESET', 'EHOSTUNREACH', 'ENETUNREACH'].includes(code)) {
-    return { category: 'connectivity', code, hint: 'Network path to upstream host failed.' };
-  }
-  if (['CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'].includes(code)) {
-    return { category: 'tls', code, hint: 'TLS certificate validation failed while connecting upstream.' };
-  }
-  return { category: 'unknown', code, hint: 'Unknown upstream fetch failure (often proxy or firewall policy).' };
-}
-
-async function proxyFetch({ source, target, requestId }) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), UPSTREAM_TIMEOUT_MS);
-
-  try {
-    const upstream = await fetch(target, {
-      headers: { 'User-Agent': 'Massachusetts-Image-Explorer/1.0' },
-      signal: controller.signal,
-    });
-
-    const text = await upstream.text();
-    if (!upstream.ok) {
-      return {
-        ok: false,
-        status: upstream.status,
-        payload: {
-          error: `Upstream ${source} request failed`,
-          requestId,
-          source,
-          target,
-          upstreamStatus: upstream.status,
-          upstreamBodyPreview: text.slice(0, 400),
-        },
-      };
-    }
-
-    return { ok: true, text };
-  } catch (error) {
-    const details = classifyError(error);
-    return {
-      ok: false,
-      status: 502,
-      payload: {
-        error: `Proxy request failed for ${source}`,
-        requestId,
-        source,
-        target,
-        detail: error?.message || 'fetch failed',
-        ...details,
-      },
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
 
@@ -112,30 +48,32 @@ const server = http.createServer(async (req, res) => {
       res.end();
       return;
     }
-
-    const requestId = randomUUID();
     const source = url.searchParams.get('source');
     const query = url.searchParams.get('query') || 'history';
     const max = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '10', 10) || 10, 1), 25);
     const target = upstreamUrl(source, query, max);
-
     if (!target) {
-      res.writeHead(400, { 'Content-Type': 'application/json', 'x-request-id': requestId });
-      res.end(JSON.stringify({ error: 'Invalid source. Use wikimedia, digital, archive, or openverse.', requestId }));
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Invalid source. Use wikimedia, digital, archive, or openverse.' }));
       return;
     }
 
-    const result = await proxyFetch({ source, target, requestId });
-
-    if (!result.ok) {
-      res.writeHead(result.status, { 'Content-Type': 'application/json', 'x-request-id': requestId });
-      res.end(JSON.stringify(result.payload));
+    try {
+      const upstream = await fetch(target, { headers: { 'User-Agent': 'Massachusetts-Image-Explorer/1.0' } });
+      const text = await upstream.text();
+      if (!upstream.ok) {
+        res.writeHead(upstream.status, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: `Upstream ${source} request failed`, status: upstream.status, body: text.slice(0, 400) }));
+        return;
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(text);
+      return;
+    } catch (e) {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: `Proxy request failed for ${source}`, detail: e.message }));
       return;
     }
-
-    res.writeHead(200, { 'Content-Type': 'application/json', 'x-request-id': requestId });
-    res.end(result.text);
-    return;
   }
 
   if (req.method !== 'GET' && req.method !== 'HEAD') {
@@ -160,5 +98,4 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`Massachusetts Image Explorer running at http://127.0.0.1:${PORT}`);
-  console.log(`Upstream timeout: ${UPSTREAM_TIMEOUT_MS}ms`);
 });

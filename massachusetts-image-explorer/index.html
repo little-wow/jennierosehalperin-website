@@ -111,30 +111,14 @@ const PROXY_BASE = window.MA_PROXY_BASE || (IS_HTTP_CONTEXT ? `${window.location
 let currentSearchTerm = 'history';
 
 async function fetchSourceJson(source, directUrl) {
-  let proxyDiagnostic = null;
-
   if (PROXY_BASE) {
     const proxyUrl = `${PROXY_BASE}?source=${encodeURIComponent(source)}&query=${encodeURIComponent(currentSearchTerm)}&limit=${SOURCE_LIMIT}`;
     try {
       const proxyRes = await fetch(proxyUrl);
       if (proxyRes.ok) return await proxyRes.json();
-
-      let payload = null;
-      try { payload = await proxyRes.json(); } catch (_) {}
-      proxyDiagnostic = payload;
-    } catch (error) {
-      proxyDiagnostic = { detail: error?.message || 'proxy request failed' };
-    }
+    } catch (_) {}
   }
-
-  try {
-    return await (await fetch(directUrl)).json();
-  } catch (directError) {
-    const proxyHint = proxyDiagnostic
-      ? ` | proxy diagnostic: ${proxyDiagnostic.category || 'unknown'} (${proxyDiagnostic.code || 'n/a'}) ${proxyDiagnostic.detail || proxyDiagnostic.hint || ''}`
-      : '';
-    throw new Error(`${directError.message}${proxyHint}`.trim());
-  }
+  return await (await fetch(directUrl)).json();
 }
 
 const SOURCE_MAP = {
