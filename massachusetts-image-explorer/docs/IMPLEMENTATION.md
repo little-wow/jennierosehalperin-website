@@ -61,3 +61,9 @@ python3 -m http.server 8080
 ## Frontend proxy strategy
 - Frontend first tries `${window.location.origin}/api/search` (or `window.MA_PROXY_BASE` override).
 - If proxy is unavailable or fails, it falls back to direct client-side `fetch` to each source endpoint.
+
+
+## Local full-stack mode
+- File: `server.mjs`
+- Serves `index.html` and exposes `/api/search` in one local process
+- Lets you test proxy-backed behavior locally without Vercel

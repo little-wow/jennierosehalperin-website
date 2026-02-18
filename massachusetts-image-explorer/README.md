@@ -16,15 +16,17 @@ The original implementation was added directly into the site. This version isola
 - `docs/IMPLEMENTATION.md` — design notes, API mapping, and behavior
 
 ## Run locally
-From this folder:
+From this folder, use the built-in local proxy server:
 
 ```bash
-python3 -m http.server 8080
+node server.mjs
 ```
 
 Then open:
 
-- `http://127.0.0.1:8080/`
+- `http://127.0.0.1:8787/`
+
+> You can still use `python3 -m http.server 8080` for static-only mode, but `/api/search` will not exist in that mode.
 
 ## Publish as its own repository
 1. Create a new GitHub repository (e.g. `massachusetts-image-explorer`).
